@@ -18,3 +18,4 @@ Work done :
 # Credits
 [Buzz programming language](https://github.com/buzz-lang/Buzz)  
 [ARGoS 3 simulator](https://github.com/ilpincy/argos3)  
+[Course link](https://www.polymtl.ca/programmes/cours/swarm-intelligence)  
