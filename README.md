@@ -2,7 +2,7 @@
 ## Project summary
 This is our approach to an **autonomous and decentralized range augmentation algorithm for exploration and rescue systems**.
 
-## Things to do :
+## Things to do
 Work done :
  - [x] Simulate surrounding a target (robot 0) with up to 8 robots for now
  - [x] We need to get independant from the hardcoded number of robots at the start to ensure resistance to failure. The system put in place to count the number of robots in the swarm currently uses a leader. This makes the system not fully decentralized.
