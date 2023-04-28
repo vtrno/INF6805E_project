@@ -1,0 +1,39 @@
+include "/usr/local/share/buzz/include/string.bzz"
+include "vec2.bzz"
+
+function remote_control(filename){
+	# Open file
+	result_file = io.fopen(filename, "r")
+	# Write a line in the file
+	io.fforeach(result_file, read)
+
+	# Close the file
+	io.fclose(result_file)
+	result_file = io.fopen(filename, "w") # reset the file and erase content
+	io.fclose(result_file)
+
+}
+	
+
+function read(line){
+    # Read the line, split it and return the content
+	read_content = string.split(line, ", ")
+	if (isnil(read_content)){
+		set_wheels(0.0, 0.0)
+	} else {
+		set_wheels(string.tofloat(read_content[0]),string.tofloat(read_content[1]))
+	}
+}
+
+function set_swarm_size(filename){
+	# Open file
+	size_file = io.fopen(filename, "r")
+	# Write a line in the file
+	io.fforeach(size_file, get_size)
+	# Close the file
+	io.fclose(size_file)
+}
+
+function get_size(line){
+	DISTANCE_TO_BEACON = string.tofloat(line)
+}

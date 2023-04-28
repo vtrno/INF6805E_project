@@ -1,0 +1,128 @@
+#  Lennard-Jones Potential
+function LennardJones(distance, sigma) {
+	# log(id, " TO OTHER ", distance)
+	var epsilon = -8.0
+	return 4*epsilon*((sigma/distance)^12-(sigma/distance)^6)
+}
+
+function LennardJonesBeacon(distance, sigma){
+	# log(id, " TO BEACON ", distance)
+	var epsilon = -0.1
+	if (distance == -1) {
+		return 0.0
+	} else if (distance < sigma){ 
+		return 4*epsilon*((sigma/distance)^12-(sigma/distance)^6)
+	} else {
+		return distance * 100.0
+	}
+}
+
+function logfile_init(){
+	showedError = 0
+	logfile = io.fopen(string.concat("./LOGS/", string.tostring(id), ".csv"), "w")
+	io.fclose(logfile)
+	if( isnil(logfile))
+	{
+		if(showedError == 0)
+		{
+			showedError = 1
+			log("error occured while openning file. Error message : ",io.error_message)
+		}
+	}
+	else 
+	{
+		io.fclose(logfile)
+	}
+}
+
+function log_position_to_file(){
+	# Log position (x,y) into textfile
+	logfile = io.fopen(string.concat("./LOGS/", string.tostring(id), ".csv"), "a")
+	if( isnil(logfile))
+	{
+		if(showedError == 0)
+		{
+			showedError = 1
+			log("error occured while openning file. Error message : ",io.error_message)
+		}
+	}
+	else 
+	{
+		io.fwrite(logfile, pose.position.x, ";", pose.position.y)
+		io.fclose(logfile)
+	}
+}
+
+### To get the dead robots out of the way
+function escape_when_dead(){
+	# log(id, " ", pose.orientation.yaw)
+	# log((3*math.pi/4)-0.1, " < alpha < ", (3*math.pi/4)+0.1)
+	# log(((pose.orientation.yaw > -0.2 + 3*math.pi /4) and (pose.orientation.yaw < 0.2 + 3*math.pi /4)))
+	if ((pose.position.x > 2.0) and (pose.position.y > 2.0)){
+		set_wheels(0.0, 0.0)
+	} else {
+		if ((pose.orientation.yaw > -0.2 + math.pi /4) and (pose.orientation.yaw < 0.2 + math.pi /4)){
+			set_wheels(20.0, 20.0)
+		} else {
+			set_wheels(-10.0, 10.0)
+		}
+	}
+	
+}
+
+function doISeeBeacon()
+{	
+	answer = 0
+	neighbors.foreach(function (rid, data) {
+		if(rid == 0)
+		{
+			answer = 1
+		}
+	})
+
+	return answer
+}
+
+#-----------------------------------
+# Color functions
+#-----------------------------------
+
+#Obstacle avoidance
+function debugOASignal()
+{
+	set_leds(255, 0, 0)
+}
+
+#Looking for the beacon using the queue
+function debugQueueSignal()
+{	
+	set_leds(0,0,255)
+}
+
+#good signal, robot is following
+function debugFollowingSignal()
+{
+	set_leds(0, 255, 0)
+} 
+
+#good signal, robot is following last neighbour
+function debugFollowingNeighbor()
+{
+	set_leds(125, 0, 125)
+} 
+
+#obstacle avoidance focused on neighbour
+function debugFollowingNeighborA()
+{
+	set_leds(0, 125, 125)
+} 
+
+function debugOAFSignal()
+{
+	set_leds(0, 255, 0)
+} 
+
+function debugNeighbor()
+{
+	set_leds(51, 51, 0)
+}

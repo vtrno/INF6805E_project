@@ -1,0 +1,26 @@
+include "obstacleAvoidance.bzz"
+include "remoteControl.bzz"
+function broadCastPosition(){
+	pingID = pingID + 1
+	s.put("ping",pingID)
+	s.put("position",pose.position) 
+}
+
+function beaconInit()
+{
+	pingID = 0
+	set_leds(255, 255, 0)
+	logfile_init()
+}
+function get_instructions(input){
+	gotoc(input)
+}
+function beaconMain()
+{
+	#obstacle_avoidance(3.0)
+	#follow_wall (20.0)
+	remote_control("remote_control.txt")	
+	set_swarm_size("size.txt")
+	broadCastPosition()
+	log_position_to_file()
+}

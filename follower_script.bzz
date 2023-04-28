@@ -1,0 +1,371 @@
+include "vec2.bzz"
+include "functions.bzz"
+include "obstacleAvoidance.bzz"
+include "swarmSizeHandler.bzz"
+include "remoteControl.bzz"
+
+function followerInit()
+{
+	MAX_COUNTER = 250
+	lastPing = 0
+	lastPositionSeen = nil
+	#contains the previous positions of the beacon
+	queue_beacon_position = {}
+	# counter for the number of steps the robot keep being lost
+	is_ping = 0 # not pinged
+	stepCounter = -1
+	#used to save the position of the beacon at a given step
+	queueCounter = 0
+	#key of the position that we are heading to
+	retracingQueue = -1
+	# counter_lost
+	counter_lost = 0
+	swarmSize = 1
+	lastLeaderCounter = 0
+	leaderCounter = 0
+	stepNoFeedbackLeader = 0 
+	counter_OA_stuck = 0
+	logfile_init() # Creates the logfile
+}
+
+function findBeaconPosition()
+{
+	if(findBeaconFirstCall == 1)
+	{
+		findBeaconFirstCall = 0
+		ping = s.get("ping")
+		if(not ((isnil(ping)) or (lastPing == ping))){
+			beaconPosition = s.get("position")
+			is_ping = 1
+		}
+		else
+		{
+			is_ping = 0
+		}
+		lastPing = ping
+	}
+	return beaconPosition
+}
+
+function vectorToBeacon(){
+	beacon_position = findBeaconPosition()
+	if (not isnil(beacon_position)){
+		
+		beacon_coordinates = {.x = beacon_position.x, .y = beacon_position.y}
+		self_coordinates =  {.x = pose.position.x, .y = pose.position.y}
+		nx = beacon_coordinates.x - self_coordinates.x
+		ny = beacon_coordinates.y - self_coordinates.y
+		
+		return math.vec2.new(nx, ny)
+	} else {
+		return nil # We return -1 so that our robot knows it lost the target
+	}
+}
+
+function is_obstacle(){
+	return proximity[0].value + proximity[7].value + proximity[1].value
+}
+
+function initStep()
+{
+	findBeaconFirstCall = 1
+}
+
+#Adds a position to queue at every 30 steps
+function updateQueue()
+{
+	if (queueCounter%30 == 0)
+	{
+		if (size(queue_beacon_position) < 10)
+		{
+			queue_beacon_position[size(queue_beacon_position)] = lastPositionSeen
+		}
+		else
+		{
+			#Removes oldest position and add the newest
+			temp = {}
+			foreach(queue_beacon_position, function(key, value)
+			{	
+				if(key != 9)
+				{
+					temp[key] = queue_beacon_position[key + 1]
+				}	
+				else
+				{
+					temp[key] = lastPositionSeen
+				}
+			})
+			queue_beacon_position = temp
+		}
+	}
+}
+
+#Moves the robot to the positions saved in the queue
+function followQueue(){	
+	self_coordinates =  {.x = pose.position.x, .y = pose.position.y}
+
+	updatePositionToFollowInQueue(self_coordinates)
+
+	if (retracingQueue != -1)
+	{
+		coordinates = {.x = queue_beacon_position[retracingQueue].x, .y = queue_beacon_position[retracingQueue].y}
+		nx = coordinates.x - self_coordinates.x
+		ny = coordinates.y - self_coordinates.y
+		
+		v_to_coor = math.vec2.new(nx, ny)
+		coor_force = math.vec2.newp(20, math.vec2.angle(v_to_coor) - pose.orientation.yaw)
+	
+		gotoc(coor_force.x, coor_force.y)
+	}
+}
+
+function updatePositionToFollowInQueue(self_coordinates)
+{
+	if (size(queue_beacon_position) > 0)
+	{
+		if (retracingQueue == -1)
+		{
+			retracingQueue = 0
+		}
+		else if (retracingQueue == size(queue_beacon_position)-1)
+		{
+			behavior = "Obstacle avoidance"
+			queue_beacon_position = {}
+			retracingQueue = -1
+		}
+		else
+		{
+			#When close enough, go to next position in queue
+			if((math.abs(self_coordinates.x - queue_beacon_position[retracingQueue].x) < 0.2) and (math.abs(self_coordinates.y - queue_beacon_position[retracingQueue].y)<0.2))
+			{
+				retracingQueue = retracingQueue + 1
+			}
+		}
+	}
+}
+
+function setBehaviorAblation()
+{
+		vector_to_beacon = vectorToBeacon()
+		frontSensorDist = is_obstacle()
+		# Case 0 : if the robot sees the beacon and has its location
+		if ((not isnil(vector_to_beacon)) and (is_ping==1))
+		{
+			counter_lost = 0
+			lastPositionSeen = findBeaconPosition()
+			updateQueue()
+			retracingQueue = -1
+			behavior = "Following"
+
+		}
+		else
+		{
+			behavior = "Obstacle Avoidance"
+		}
+		
+}
+
+function setBehavior()
+{
+		vector_to_beacon = vectorToBeacon()
+
+		if ((not isnil(vector_to_beacon)) and (is_ping==1))
+		{
+			counter_lost = 0
+			lastPositionSeen = findBeaconPosition()
+			updateQueue()
+			retracingQueue = -1
+			
+			#Case 1: You are linked to the swarm, but can't see the beacon
+			if((not doISeeBeacon()) and (neighbors.kin().count() < 3))
+			{
+				behavior = "Following neighbor"
+			}
+			#Case 2: You are linked to the swarm and see the beacon
+			else
+			{	
+				behavior = "Following"
+			}
+		}
+
+		#Case 3: You are not connected to the swarm and can't see the beacon
+		else if ((not isnil(vector_to_beacon)) and (is_ping==0) and (size(queue_beacon_position) > 0) and (counter_lost <= MAX_COUNTER))
+		{
+			counter_lost = counter_lost + 1
+			behavior = "Follow Queue"
+		}	
+		#Case 4: Can't see the beacon and the queue is empty
+		else
+		{
+			behavior = "Obstacle Avoidance"
+		}
+		
+}
+
+function obstacleAvoidance()
+{
+	obstacle_avoidance(20.0)
+}
+
+function get_unique_neighbor_pos(){
+	# function to get the neighbor position
+	# Transformation
+	var cartesian = neighbors.map(function(rid, data) {
+    var c = {}
+    c.x = data.distance * math.cos(data.elevation) * math.cos(data.azimuth)
+    c.y = data.distance * math.cos(data.elevation) * math.sin(data.azimuth)
+    c.z = data.distance * math.sin(data.elevation)
+
+    return c
+	})
+	
+	# Reduction (accum is a table) with values x, y, and z, initialized to 0
+	var neighbor = cartesian.reduce(function(rid, data, accum) {
+    accum.x = accum.x + data.x
+    accum.y = accum.y + data.y
+    accum.z = accum.z + data.z
+
+    return accum
+	}, { .x = 0, .y = 0, .z = 0 })
+	
+	return neighbor
+}
+
+function followNeighbor()
+{
+
+	# Transformation
+	cartesian = neighbors.map(function(rid, data) {
+    var c = {}
+    c.x = data.distance * math.cos(data.elevation) * math.cos(data.azimuth)
+    c.y = data.distance * math.cos(data.elevation) * math.sin(data.azimuth)
+    c.z = data.distance * math.sin(data.elevation)
+
+    return c
+	})
+	
+	# Reduction (accum is a table) with values x, y, and z, initialized to 0
+	var neighbor = cartesian.reduce(function(rid, data, accum) {
+    accum.x = accum.x + data.x
+    accum.y = accum.y + data.y
+    accum.z = accum.z + data.z
+
+    return accum
+	}, { .x = 0, .y = 0, .z = 0 })
+	gotoc(neighbor.x/4, neighbor.y/4)
+}
+
+function followQueueWithA()
+{
+	#obstacle avoidance focused on the position that we are heading to
+	coordinates = {.x = queue_beacon_position[retracingQueue].x, .y = queue_beacon_position[retracingQueue].y}
+	direction_obstacle_avoidance(20.0, coordinates)
+}
+
+function followBeaconWithA()
+{
+	#obstacle avoidance focused on the beacon
+	direction_obstacle_avoidance(20.0, lastPositionSeen)
+}
+
+function followNeighborWithA()
+{
+	#obstacle avoidance focused on the beacon
+	direction_obstacle_avoidance(20.0, get_unique_neighbor_pos)
+}
+
+
+function following(){	
+	inswarm = neighbors.kin().poses 
+	followers_force = reduce(inswarm, function(rid, data, acc){
+		var neigh_force = math.vec2.newp(LennardJones(data.distance/100, DISTANCE_TO_NEIGHBORS), data.azimuth) # Here there is a /100 because the distance given by the neighbors search is 100 time the cartesian calculated one
+		acc = math.vec2.add(acc, neigh_force)
+		return acc
+	}, math.vec2.new(0.0,0.0))
+	distance_to_beacon = distanceToLastBeaconPosition()
+	ljbeacon = LennardJonesBeacon(distance_to_beacon, DISTANCE_TO_BEACON)
+	beacon_force = math.vec2.newp(ljbeacon, math.vec2.angle(vector_to_beacon) - pose.orientation.yaw)
+	# # log("___", id, "___")
+	# # log('distance to target -> ', distance_to_beacon)
+	# # log('LJ to target -> ', ljbeacon)
+	# # log('LJ to others -> ', math.vec2.length(followers_force))
+	# # log('	Components -> ', followers_force.x, " ", followers_force.y)
+
+	# beacon_force = math.vec2.scale(beacon_force, 20.0) # scale force applied by others
+	vector_to_beacon = math.vec2.add(followers_force, beacon_force)
+	# vector_to_beacon = math.vec2.scale(vector_to_beacon, 100.0)
+	gotoc(vector_to_beacon.x, vector_to_beacon.y)
+}
+
+function updateDistance()
+{
+	DISTANCE_TO_NEIGHBORS = DISTANCE_TO_BEACON*2.0*math.sin(math.pi/swarmSize)
+}
+
+### Calculate distance to last known beacon's position
+# Note that this is in 2D
+function distanceToLastBeaconPosition(){
+	beacon_vector = vectorToBeacon()
+	if (not isnil(beacon_vector)){
+		return math.sqrt(beacon_vector.x^2+beacon_vector.y^2) # Returns the distance to the target
+	} else {
+		return beacon_vector # We return -1 so that our robot knows it lost the target
+	}
+}
+
+function reduceStuckCounter()
+{
+	if (counter_OA_stuck > 0)
+	{
+		counter_OA_stuck = counter_OA_stuck - 1
+	}
+}
+
+function followerMain()
+{
+	initStep()
+	update_Counter()
+	updateDistance()
+	setBehavior()
+	# Broadcasting a value on the neigbors number of nieghbors
+	neighbors.broadcast("beacon_visible",  doISeeBeacon())
+	set_swarm_size("size.txt")
+	if (behavior == "Following"){
+			reduceStuckCounter()
+			debugFollowingSignal()
+			following()
+		}
+		else if(behavior == "Follow Queue"){
+			reduceStuckCounter()
+			debugQueueSignal()
+			followQueue()
+		}
+		else if(behavior == "Following neighbor"){
+			reduceStuckCounter()
+			debugNeighbor()
+			followNeighbor()
+		}
+		else if(behavior == "Turn around"){
+			debugNeighbor()
+			set_wheels(20.0, -20.0)
+		}
+		else if (behavior == "Obstacle avoidance for queue"){
+			debugOASignal()
+			followQueueWithA()
+		}	
+		else if (behavior == "Obstacle avoidance with LKP"){
+			debugOASignal()
+			followBeaconWithA()
+		}		
+		else if (behavior == "Obstacle avoidance with neighbor"){
+			followNeighborWithA()
+			followBeaconWithA()
+		}					
+		else
+		{
+			debugOASignal()
+			obstacleAvoidance()
+		}
+		log_position_to_file()
+		queueCounter = queueCounter + 1
+}

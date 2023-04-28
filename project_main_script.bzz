@@ -1,0 +1,53 @@
+include "beacon_script.bzz"
+include "follower_script.bzz"
+include "functions.bzz"
+# Executed at init time
+
+function init() {
+	math.rng.setseed(id+1)
+
+	TO_FAIL = {
+	}
+
+	stepToDeath = 0
+	NUMBER_STEP_ACCOUNT_MISSING = 20	#Must be greater than the number of robots
+	DISTANCE_TO_BEACON = 1.0
+	beacon = swarm.create(1)
+	follower = swarm.create(2)
+	#To change the range of stigmergy we need to change rab_range in .argos
+	s = stigmergy.create(1)
+	s.put("listIDPresent",{})	
+	if(id == 0)
+	{
+		beacon.join()
+		beaconInit()
+	}
+	else
+	{
+		follower.join()
+		followerInit()
+	}
+}
+
+
+# Executed every time step
+function step() {
+		# log(id," ---------")
+		# s.foreach(function(key, value, robot_id) {log("key : ",key, " value : ", value, " id : ", robot_id)})
+		beacon.exec(beaconMain)
+		follower.exec(followerMain)
+		stepToDeath = stepToDeath + 1
+		if((not isnil(TO_FAIL[id])) and (stepToDeath > TO_FAIL[id]))
+		{
+			follower.leave()
+			escape_when_dead()
+			set_leds(255, 255, 255)
+		}
+}
+
+function reset(){
+}
+
+# Execute at exit
+function destroy() {
+}

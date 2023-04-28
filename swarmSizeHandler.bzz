@@ -1,0 +1,103 @@
+function updateLeader()
+{
+	#TODO TAKE INTO CONSIDERATION LEADER MISSING
+	# log("highest id : ", highestID, " id : ", id," size : ",swarmSize)
+	var highID = s.get("highestID")
+	var leadCount = s.get("pingHighestID")
+	var needChangeID = 0
+	if(((isnil(highID)) or (id > highID)))
+	{
+		#This robot has higher ID so better leader
+		s.put("highestID",id)
+	}
+	if(not (isnil(leadCount)))
+	{
+		if(lastLeaderCounter == leadCount)
+		{
+			stepNoFeedbackLeader = stepNoFeedbackLeader + 1
+		}
+		else
+		{
+			stepNoFeedbackLeader = 0
+		}
+		if(stepNoFeedbackLeader > 5)
+		{
+			s.put("highestID",id)
+			if(not isnil(leadCount))
+			{
+				leaderCounter = leadCount
+			}
+			else
+			{
+				leaderCounter = 0
+			}
+		}
+		lastLeaderCounter = leadCount
+	}
+	if(not isnil(highID))
+	{
+		if(highID == id)
+		{
+			leaderCounter = leaderCounter + 1
+			s.put("pingHighestID",leaderCounter)
+		}
+	}
+}
+
+function updateForMissingRobots()
+{
+	var highID = s.get("highestID")
+	var listIDFuture = s.get("listIDUpdated")
+	if((highestID == id) and (stepCounter < 0) )
+	{
+		# log("happened")
+		stepCounter = NUMBER_STEP_ACCOUNT_MISSING
+		s.put("listIDPresent",listIDFuture)	
+		newMap = {}
+		newMap[id] = 1
+		s.put("listIDUpdated",newMap)
+	}
+	stepCounter = stepCounter - 1
+}
+
+function addRobotIfNotPresent(stig)
+{
+	var listIDPresent = s.get(stig)	
+	if(not (isnil(listIDPresent)))
+	{
+		present = 0
+		foreach(listIDPresent, function(key,value) { if(key == id){present = 1} })
+		if(present == 0)
+		{
+			listIDPresent[id] = 1
+			s.put(stig,listIDPresent)
+		}
+	}
+	else
+	{
+		s.put(stig,{})
+	}
+}
+
+function updateSwarmSize()
+{
+	var listIDPresent = s.get("listIDPresent")	
+	if(not (isnil(listIDPresent)))
+	{
+		swarmSize = size(listIDPresent)
+	}
+}
+
+function update_Counter()
+{	
+	#TODO CHANDE FOR DECENTRALISED METHOD
+	
+	#Method to keep track of number of robots inside of the swarm
+	#Assume each bot has a different ID
+	#It uses a leader
+	updateLeader()
+	addRobotIfNotPresent("listIDPresent")
+	addRobotIfNotPresent("listIDUpdated")
+	updateForMissingRobots()
+	updateSwarmSize()
+}

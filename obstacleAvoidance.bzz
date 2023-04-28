@@ -1,0 +1,104 @@
+include "vec2.bzz"
+
+function moveForward(speed){
+	set_wheels(speed, speed)
+}
+function moveForwardWSmallTurn(speed){
+	set_wheels(speed, speed/2)
+}
+function turn(speed){
+	set_wheels(speed, -speed)
+}
+function inverseTurn(){
+	set_wheels(0.0, 20.0)
+}
+
+function stop(){
+	set_wheels(0.0, 0.0)
+}
+
+function obstacle_avoidance (speed) {
+	var frontSensorDist = proximity[0].value + proximity[7].value + proximity[1].value
+	if (frontSensorDist !=0){
+		turn(speed)
+	}
+	else if(proximity[2].value > 0.2)
+	{
+		moveForwardWSmallTurn(speed)
+	}
+	else{
+		moveForward(speed)
+	}
+}
+
+function follow_wall (speed) {
+	var frontSensorDist = proximity[0].value + proximity[7].value + proximity[1].value
+	if (frontSensorDist !=0){
+		set_wheels(-speed, speed)
+	}
+	else if(proximity[6].value != 0)
+	{
+		moveForward(speed)
+	}
+	else{
+		set_wheels(speed, speed/2)
+	}
+}
+
+function direction_obstacle_avoidance(speed, destination){
+	var frontSensorDist = proximity[0].value + proximity[1].value + proximity[7].value
+	if (frontSensorDist !=0){
+
+		self_coordinates =  {.x = pose.position.x, .y = pose.position.y}
+		nx = destination.x - self_coordinates.x
+		ny = destination.y - self_coordinates.y
+		yaw = pose.orientation.yaw + math.pi
+		angle_goal = math.atan(ny, nx) + math.pi
+		
+		orientation = angle_goal - yaw
+		if(((orientation < 0.6) and (orientation > -0.6)) or (orientation < -5.4))
+		{
+			counter_OA_stuck = counter_OA_stuck + 2
+			if (proximity[1].value != 0)
+	 		{set_wheels(speed, -speed/2)}
+			else
+		 	{set_wheels(-speed/2, speed)}
+			
+		}
+		else if((proximity[1].value != 0) and  (proximity[7].value == 0))
+		{
+			set_wheels(speed, -speed/2)
+		}
+		else if((proximity[1].value == 0) and  (proximity[7].value != 0))
+		{
+			set_wheels(-speed/2, speed)
+		}
+		else if(orientation < 0)
+		{
+			if(orientation > -math.pi)
+			{	
+				set_wheels(speed, -speed/2)
+			}
+			else
+			{
+				set_wheels(-speed/2, speed)
+			}
+		}
+		else
+		{
+			if(orientation > math.pi)
+			{	
+				set_wheels(speed, -speed/2)
+			}
+			else
+			{
+				set_wheels(-speed/2, speed)
+			}
+		}
+
+		
+	}	
+	else{
+		moveForward(speed)
+	}
+}
