@@ -23,3 +23,7 @@ Work done :
 [Buzz programming language](https://github.com/buzz-lang/Buzz)  
 [ARGoS 3 simulator](https://github.com/ilpincy/argos3)  
 [Course link](https://www.polymtl.ca/programmes/cours/swarm-intelligence)  
+[Kheperaiv robot integration](https://github.com/buzz-lang/Buzz/blob/master/doc/robot-integration/kheperaiv.md)  
+
+> Coding with buzz feels like this :  
+> ![The flextape meme](https://i.imgflip.com/4/2reqtg.jpg) - An unknown member of the group, 2023
