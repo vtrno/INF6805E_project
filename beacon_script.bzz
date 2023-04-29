@@ -19,7 +19,7 @@ function beaconMain()
 {
 	#obstacle_avoidance(3.0)
 	#follow_wall (20.0)
-	remote_control("remote_control.txt")	
+	#remote_control("remote_control.txt")	
 	set_swarm_size("size.txt")
 	broadCastPosition()
 	log_position_to_file()

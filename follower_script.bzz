@@ -11,14 +11,14 @@ function followerInit()
 	lastPositionSeen = nil
 	#contains the previous positions of the beacon
 	queue_beacon_position = {}
-	# counter for the number of steps the robot keep being lost
+	# is_ping = does the robot have the latest/current position of the robot
 	is_ping = 0 # not pinged
 	stepCounter = -1
 	#used to save the position of the beacon at a given step
 	queueCounter = 0
 	#key of the position that we are heading to
 	retracingQueue = -1
-	# counter_lost
+	# counter_lost (count the number of steps the robot trying to reconnect to the swarm and/or find the beacon)
 	counter_lost = 0
 	swarmSize = 1
 	lastLeaderCounter = 0
@@ -169,6 +169,7 @@ function setBehavior()
 {
 		vector_to_beacon = vectorToBeacon()
 
+		# Case 1 : the current position of the robot is known
 		if ((not isnil(vector_to_beacon)) and (is_ping==1))
 		{
 			counter_lost = 0
@@ -176,25 +177,29 @@ function setBehavior()
 			updateQueue()
 			retracingQueue = -1
 			
-			#Case 1: You are linked to the swarm, but can't see the beacon
+			# Case 1.1 : the robot is linked to the swarm, BUT can't see directly the beacon
+			# it means it knows the current beacon position through its neighbors (that ar of a count of stricltly less than 3)
+			# in this case the robot has high chance to lose the swarm so it follows its neighbor
 			if((not doISeeBeacon()) and (neighbors.kin().count() < 3))
 			{
 				behavior = "Following neighbor"
 			}
-			#Case 2: You are linked to the swarm and see the beacon
+			#Case 1.2 : The robot either see the robot or doesn't but is connected to more than 3 robots of the swarm
 			else
 			{	
 				behavior = "Following"
 			}
 		}
 
-		#Case 3: You are not connected to the swarm and can't see the beacon
+		# Case 2: The robot can't see the beacon and is not connected to the swarm
+		# but it has memorized the past position of the beacon in a queue
 		else if ((not isnil(vector_to_beacon)) and (is_ping==0) and (size(queue_beacon_position) > 0) and (counter_lost <= MAX_COUNTER))
 		{
 			counter_lost = counter_lost + 1
 			behavior = "Follow Queue"
 		}	
-		#Case 4: Can't see the beacon and the queue is empty
+		# Case 3: The robot can't see the beacon and is not connected to the swarm
+		# and has an empty beacon's positions queue
 		else
 		{
 			behavior = "Obstacle Avoidance"
